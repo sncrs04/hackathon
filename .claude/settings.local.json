@@ -6,7 +6,11 @@
       "Bash(Sort-Object FullName)",
       "PowerShell(Get-ChildItem -Path \"e:\\\\hackathon\" -Recurse | ForEach-Object { if \\($_.PSIsContainer\\) { \"[DIR] $_\" } else { \"[FILE] $_\" } })",
       "PowerShell(tree \"e:\\\\hackathon\" -L 3)",
-      "PowerShell($csv = Import-Csv \"e:\\\\hackathon\\\\scramble-data.csv\"; Write-Host \"Total rows: $\\($csv.Count\\)\"; Write-Host \"Columns: $\\($csv[0].PSObject.Properties.Name -join ', '\\)\")"
+      "PowerShell($csv = Import-Csv \"e:\\\\hackathon\\\\scramble-data.csv\"; Write-Host \"Total rows: $\\($csv.Count\\)\"; Write-Host \"Columns: $\\($csv[0].PSObject.Properties.Name -join ', '\\)\")",
+      "Bash(Select-Object -Property FullName)",
+      "Bash(ConvertTo-Csv -NoTypeInformation)",
+      "Bash(Out-String)",
+      "PowerShell(Get-ChildItem -Path \"e:\\\\hackathon\" -Recurse -Force | ForEach-Object { $_.FullName })"
     ]
   }
 }

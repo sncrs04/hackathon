@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Service Request Intelligence Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0d1117;
+      --card:     #161b22;
+      --card2:    #1c2128;
+      --border:   #30363d;
+      --accent:   #2563eb;
+      --accentL:  #3b82f6;
+      --txt:      #e6edf3;
+      --txt2:     #8b949e;
+      --green:    #22c55e;
+      --yellow:   #f59e0b;
+      --red:      #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--txt); min-height: 100vh; }
+
+    /* ── Navbar ── */
+    .top-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 24px;
+               display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .top-bar .brand { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .top-bar .brand i { color: var(--accent); }
+    .top-bar .right  { display: flex; align-items: center; gap: 10px; }
+
+    /* ── Main layout ── */
+    .main { padding: 24px; max-width: 1700px; margin: 0 auto; }
+
+    /* ── Stat cards ── */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+                 transition: transform .2s, box-shadow .2s; }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #0005; }
+    .stat-icon { font-size: 1.4rem; margin-bottom: 8px; }
+    .stat-val  { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .stat-lbl  { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--txt2); margin-top: 4px; }
+    .stat-sub  { font-size: 0.78rem; color: var(--txt2); margin-top: 2px; }
+
+    /* ── Chart row ── */
+    .charts-row { display: grid; grid-template-columns: 260px 1fr 320px; gap: 16px; margin-bottom: 24px; }
+    @media(max-width:1100px){ .charts-row { grid-template-columns: 1fr 1fr; } }
+    @media(max-width:700px) { .charts-row { grid-template-columns: 1fr; } }
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .chart-lbl  { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--txt2); margin-bottom: 14px; }
+
+    /* ── Bottom row ── */
+    .bottom-row { display: grid; grid-template-columns: 1fr 380px; gap: 16px; }
+    @media(max-width:1100px){ .bottom-row { grid-template-columns: 1fr; } }
+
+    /* ── Table card ── */
+    .table-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .table-toolbar { padding: 14px 16px; border-bottom: 1px solid var(--border);
+                     display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .search-wrap { position: relative; flex: 1; min-width: 200px; }
+    .search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--txt2); font-size: .85rem; }
+    .search-wrap input { width: 100%; background: var(--card2); border: 1px solid var(--border); color: var(--txt);
+                         border-radius: 8px; padding: 8px 12px 8px 36px; font-size: .875rem; outline: none; }
+    .search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #2563eb18; }
+    .search-wrap input::placeholder { color: var(--txt2); }
+    .f-select { background: var(--card2); border: 1px solid var(--border); color: var(--txt); border-radius: 8px;
+                padding: 8px 10px; font-size: .85rem; outline: none; cursor: pointer; }
+    .f-select:focus { border-color: var(--accent); }
+    .f-select option { background: var(--card2); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: var(--card2); padding: 11px 14px; font-size: .72rem; text-transform: uppercase;
+               letter-spacing: .06em; color: var(--txt2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: .85rem; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--card2); cursor: pointer; }
+    .tbl-footer { padding: 12px 16px; border-top: 1px solid var(--border);
+                  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .tbl-info { font-size: .8rem; color: var(--txt2); }
+
+    /* ── Status badges ── */
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: .72rem; font-weight: 500; }
+    .badge-pending   { background: #f59e0b22; color: var(--yellow); border: 1px solid #f59e0b44; }
+    .badge-completed { background: #22c55e22; color: var(--green);  border: 1px solid #22c55e44; }
+    .badge-rejected  { background: #ef444422; color: var(--red);    border: 1px solid #ef444444; }
+
+    /* ── Pagination ── */
+    .pager { display: flex; gap: 4px; }
+    .pager a { display: inline-flex; align-items: center; justify-content: center;
+               min-width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border);
+               background: var(--card); color: var(--txt2); font-size: .82rem; text-decoration: none; transition: all .15s; }
+    .pager a:hover { background: var(--card2); color: var(--txt); }
+    .pager a.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .pager a.disabled { opacity: .4; pointer-events: none; }
+
+    /* ── Predict panel ── */
+    .predict-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+    .panel-title { font-size: .85rem; font-weight: 600; color: var(--txt2); text-transform: uppercase;
+                   letter-spacing: .06em; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+    .panel-title i { color: var(--accent); }
+    .f-group { margin-bottom: 14px; }
+    .f-label { font-size: .78rem; color: var(--txt2); margin-bottom: 5px; display: block; }
+    .f-input, .f-sel { width: 100%; background: var(--card2); border: 1px solid var(--border); color: var(--txt);
+                       border-radius: 8px; padding: 9px 12px; font-size: .875rem; outline: none; }
+    .f-input:focus, .f-sel:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #2563eb18; }
+    .f-input::placeholder { color: var(--txt2); }
+    .f-sel option { background: var(--card2); }
+    .btn-predict { width: 100%; background: var(--accent); border: none; color: #fff; border-radius: 8px;
+                   padding: 10px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: background .15s; margin-bottom: 16px; }
+    .btn-predict:hover { background: var(--accentL); }
+
+    /* ── Prediction result ── */
+    .pred-box { background: linear-gradient(135deg,#2563eb18,#7c3aed18); border: 1px solid #2563eb44;
+                border-radius: 12px; padding: 18px; display: none; }
+    .pred-box.show { display: block; }
+    .pred-outcome { font-size: 1.5rem; font-weight: 700; margin: 4px 0 10px; }
+    .conf-track { background: var(--card2); border-radius: 4px; height: 8px; overflow: hidden; }
+    .conf-fill  { height: 100%; border-radius: 4px; transition: width .8s ease; }
+
+    /* ── Modal ── */
+    .modal-overlay { position: fixed; inset: 0; background: #0009; display: none; z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+                 width: min(780px, 95vw); max-height: 90vh; overflow-y: auto; position: relative; }
+    .modal-head { padding: 18px 22px; border-bottom: 1px solid var(--border);
+                  display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0;
+                  background: var(--card); z-index: 1; }
+    .modal-head h5 { margin: 0; font-size: 1rem; font-weight: 600; }
+    .modal-close { background: none; border: none; color: var(--txt2); font-size: 1.2rem; cursor: pointer; padding: 4px; }
+    .modal-close:hover { color: var(--txt); }
+    .modal-body { padding: 22px; }
+
+    /* ── Modal detail cells ── */
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); gap: 12px; margin-bottom: 20px; }
+    .d-cell { background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+    .d-lbl  { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--txt2); margin-bottom: 4px; }
+    .d-val  { font-size: .88rem; font-weight: 500; word-break: break-word; }
+    .arabic { direction: rtl; font-family: 'Segoe UI', Tahoma, sans-serif; }
+
+    /* ── Section header ── */
+    .sec-head { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+                color: var(--txt2); margin: 20px 0 12px; display: flex; align-items: center; gap: 8px; }
+    .sec-head::after { content:''; flex:1; height:1px; background: var(--border); }
+    .sec-head i { color: var(--accent); }
+
+    /* ── AI prediction block in modal ── */
+    .ai-block { background: linear-gradient(135deg,#2563eb18,#7c3aed18); border: 1px solid #2563eb44;
+                border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+    .ai-outcome { font-size: 1.6rem; font-weight: 700; margin: 2px 0 10px; }
+
+    /* ── Workflow nodes ── */
+    .node-line { display: flex; gap: 12px; margin-bottom: 12px; }
+    .node-dot  { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin-top: 4px; flex-shrink: 0; }
+
+    /* ── Buttons ── */
+    .btn-outline { background: none; border: 1px solid var(--border); color: var(--txt2); border-radius: 8px;
+                   padding: 6px 14px; font-size: .82rem; cursor: pointer; transition: all .15s; }
+    .btn-outline:hover { border-color: var(--accent); color: var(--txt); }
+    .btn-train { background: linear-gradient(135deg,#2563eb,#7c3aed); border: none; color: #fff; border-radius: 8px;
+                 padding: 7px 16px; font-size: .82rem; font-weight: 600; cursor: pointer; }
+    .btn-train:hover { opacity: .9; }
+    .btn-eye { background: none; border: 1px solid var(--border); color: var(--txt2); border-radius: 6px;
+               padding: 3px 8px; cursor: pointer; font-size: .78rem; }
+    .btn-eye:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Train modal ── */
+    .train-log { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+                 font-family: monospace; font-size: .8rem; max-height: 300px; overflow-y: auto; white-space: pre-wrap; margin-top: 12px; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: #3d444d; border-radius: 3px; }
+
+    /* ── Spinner ── */
+    .spin { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border);
+            border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .text-trunc { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+    .text-muted2 { color: var(--txt2); }
+    .small2 { font-size: .78rem; }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top-bar">
+  <div class="brand">
+    <i class="fas fa-chart-network"></i>
+    Service Request Intelligence Dashboard
+  </div>
+  <div class="right">
+    <span class="text-muted2 small2" id="dataTag">Loading…</span>
+    <button class="btn-train" onclick="openTrainModal()">
+      <i class="fas fa-brain me-1"></i> Retrain Model
+    </button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Stats row -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card"><div class="stat-icon" style="color:var(--accentL)"><i class="fas fa-database"></i></div><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Total Requests</div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:var(--yellow)"><i class="fas fa-clock"></i></div><div class="stat-val" style="color:var(--yellow)" id="s-pend">—</div><div class="stat-lbl">Pending</div><div class="stat-sub" id="s-pend-p"></div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:var(--green)"><i class="fas fa-check-circle"></i></div><div class="stat-val" style="color:var(--green)" id="s-done">—</div><div class="stat-lbl">Completed</div><div class="stat-sub" id="s-done-p"></div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:var(--red)"><i class="fas fa-times-circle"></i></div><div class="stat-val" style="color:var(--red)" id="s-rej">—</div><div class="stat-lbl">Rejected</div><div class="stat-sub" id="s-rej-p"></div></div>
+    <div class="stat-card"><div class="stat-icon" style="color:#a78bfa"><i class="fas fa-credit-card"></i></div><div class="stat-val" style="color:#a78bfa" id="s-pay">—</div><div class="stat-lbl">Payment Required</div></div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-lbl"><i class="fas fa-pie-chart me-1"></i>Status Distribution</div>
+      <div style="position:relative;height:230px"><canvas id="chartStatus"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-lbl"><i class="fas fa-chart-line me-1"></i>Requests Over Time</div>
+      <div style="position:relative;height:230px"><canvas id="chartTimeline"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-lbl"><i class="fas fa-building me-1"></i>Top 10 Organizations</div>
+      <div style="position:relative;height:230px"><canvas id="chartOrgs"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Bottom row: table + predict -->
+  <div class="bottom-row">
+
+    <!-- Table -->
+    <div class="table-card">
+      <div class="table-toolbar">
+        <div class="search-wrap">
+          <i class="fas fa-search"></i>
+          <input type="text" id="searchInput" placeholder="Search ID, organization, service name (Arabic / English)…" autocomplete="off">
+        </div>
+        <select class="f-select" id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <select class="f-select" id="orgFilter" style="max-width:200px">
+          <option value="">All Organizations</option>
+        </select>
+        <select class="f-select" id="perPage">
+          <option value="10">10 / page</option>
+          <option value="20" selected>20 / page</option>
+          <option value="50">50 / page</option>
+        </select>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Request ID</th>
+              <th>Service Name</th>
+              <th>Organization</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th>Created At</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tBody">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--txt2)"><div class="spin" style="margin:auto"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tbl-footer">
+        <span class="tbl-info" id="tblInfo">—</span>
+        <div class="pager" id="pager"></div>
+      </div>
+    </div>
+
+    <!-- Predict panel -->
+    <div class="predict-panel">
+      <div class="panel-title"><i class="fas fa-robot"></i>Predict New Request</div>
+
+      <div class="f-group">
+        <label class="f-label">Service ID</label>
+        <input type="number" class="f-input" id="p-sid" value="89" placeholder="e.g. 89">
+      </div>
+      <div class="f-group">
+        <label class="f-label">Organization</label>
+        <select class="f-sel" id="p-org"><option value="">Select organization…</option></select>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Service Name (Arabic / English)</label>
+        <input type="text" class="f-input" id="p-name" placeholder="Enter service name…">
+      </div>
+      <div class="f-group">
+        <label class="f-label">Payment Required</label>
+        <select class="f-sel" id="p-pay"><option value="0">No</option><option value="1">Yes</option></select>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Submission Date &amp; Time</label>
+        <input type="datetime-local" class="f-input" id="p-dt">
+      </div>
+      <div class="f-group">
+        <label class="f-label">Citizen Birth Date</label>
+        <input type="date" class="f-input" id="p-bd" value="1990-01-01">
+      </div>
+
+      <button class="btn-predict" onclick="runPredict()">
+        <i class="fas fa-magic me-2"></i>Predict Outcome
+      </button>
+
+      <div class="pred-box" id="predBox">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2)">AI Prediction</span>
+          <span id="pred-badge"></span>
+        </div>
+        <div class="pred-outcome" id="pred-outcome"></div>
+        <div style="font-size:.8rem;color:var(--txt2);margin-bottom:6px">
+          Confidence: <strong id="pred-conf" style="color:var(--txt)"></strong>
+        </div>
+        <div class="conf-track"><div class="conf-fill" id="pred-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+
+  </div><!-- /bottom-row -->
+
+  <div style="text-align:center;color:var(--txt2);font-size:.75rem;margin-top:28px;padding-bottom:20px">
+    Government Service Request Intelligence Dashboard &bull; XGBoost ML Model &bull; Iraqi Government Services Dataset
+  </div>
+</div>
+
+<!-- ── Record Detail Modal ── -->
+<div class="modal-overlay" id="detailModal" onclick="if(event.target===this) closeModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h5><i class="fas fa-file-alt" style="color:var(--accent);margin-right:8px"></i>Request Details</h5>
+      <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div style="text-align:center;padding:40px"><div class="spin" style="margin:auto;width:32px;height:32px;border-width:3px"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Train Modal ── -->
+<div class="modal-overlay" id="trainModal" onclick="if(event.target===this&&!_training) closeTrainModal()">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-head">
+      <h5><i class="fas fa-brain" style="color:var(--accent);margin-right:8px"></i>Model Training</h5>
+      <button class="modal-close" onclick="if(!_training) closeTrainModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="trainBody">
+      <div style="text-align:center;padding:30px 20px">
+        <div class="spin" style="margin:auto;width:36px;height:36px;border-width:3px;margin-bottom:16px"></div>
+        <div style="color:var(--txt2)">Training model on 50,000 records… please wait.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+/* ─────────────────────────────────────────────────────────────
+   State
+───────────────────────────────────────────────────────────── */
+let _page = 1, _totalPages = 1, _searchTimer = null, _training = false;
+const C = {}; // chart instances
+
+/* ─────────────────────────────────────────────────────────────
+   Boot
+───────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  Chart.defaults.color = '#8b949e';
+  Chart.defaults.borderColor = '#30363d';
+  Chart.defaults.font.family = 'Inter, sans-serif';
+
+  // Default datetime = now
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('p-dt').value = now.toISOString().slice(0,16);
+
+  loadStats();
+  loadCharts();
+  loadOrgs();
+  loadRecords();
+
+  document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(() => { _page = 1; loadRecords(); }, 350);
+  });
+  document.getElementById('statusFilter').addEventListener('change', () => { _page=1; loadRecords(); });
+  document.getElementById('orgFilter').addEventListener('change', () => { _page=1; loadRecords(); });
+  document.getElementById('perPage').addEventListener('change', () => { _page=1; loadRecords(); });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   Stats
+───────────────────────────────────────────────────────────── */
+function loadStats() {
+  fetch('/api/stats').then(r=>r.json()).then(d => {
+    const fmt = n => n.toLocaleString();
+    const pct = (n,t) => (n/t*100).toFixed(1)+'%';
+    document.getElementById('s-total').textContent = fmt(d.total);
+    document.getElementById('s-pend').textContent  = fmt(d.pending);
+    document.getElementById('s-done').textContent  = fmt(d.completed);
+    document.getElementById('s-rej').textContent   = fmt(d.rejected);
+    document.getElementById('s-pay').textContent   = fmt(d.payment_required);
+    document.getElementById('s-pend-p').textContent = pct(d.pending, d.total) + ' of total';
+    document.getElementById('s-done-p').textContent = pct(d.completed, d.total) + ' of total';
+    document.getElementById('s-rej-p').textContent  = pct(d.rejected, d.total) + ' of total';
+    document.getElementById('dataTag').textContent  = fmt(d.total) + ' records loaded';
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Charts
+───────────────────────────────────────────────────────────── */
+function loadCharts() {
+  // Donut – status
+  fetch('/api/charts/status').then(r=>r.json()).then(d => {
+    const colors = d.labels.map(l => l==='completed'?'#22c55e': l==='pending'?'#f59e0b':'#ef4444');
+    if (C.status) C.status.destroy();
+    C.status = new Chart('chartStatus', {
+      type: 'doughnut',
+      data: { labels: d.labels, datasets: [{ data: d.values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins: { legend: { position:'bottom', labels:{ padding:12, boxWidth:12 } } } }
+    });
+  });
+
+  // Line – timeline
+  fetch('/api/charts/timeline').then(r=>r.json()).then(d => {
+    if (C.timeline) C.timeline.destroy();
+    C.timeline = new Chart('chartTimeline', {
+      type: 'line',
+      data: { labels: d.labels, datasets:[{
+        label:'Requests', data: d.values,
+        borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,0.12)',
+        borderWidth:2, fill:true, tension:0.4, pointRadius:4, pointBackgroundColor:'#2563eb'
+      }]},
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins: { legend: { display:false } },
+        scales: { x:{ grid:{ color:'#30363d' } }, y:{ grid:{ color:'#30363d' }, beginAtZero:true } } }
+    });
+  });
+
+  // Bar – top orgs
+  fetch('/api/charts/top_orgs').then(r=>r.json()).then(d => {
+    if (C.orgs) C.orgs.destroy();
+    C.orgs = new Chart('chartOrgs', {
+      type: 'bar',
+      data: { labels: d.labels, datasets:[{
+        data: d.values, backgroundColor:'rgba(37,99,235,0.7)',
+        borderColor:'#2563eb', borderWidth:1, borderRadius:4
+      }]},
+      options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false } },
+        scales:{
+          x:{ grid:{ color:'#30363d' }, beginAtZero:true },
+          y:{ grid:{ display:false }, ticks:{ font:{ size:10 },
+            callback(v){ const l=this.getLabelForValue(v); return l.length>22?l.slice(0,22)+'…':l; }
+          }}
+        }
+      }
+    });
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Orgs dropdown
+───────────────────────────────────────────────────────────── */
+function loadOrgs() {
+  fetch('/api/orgs').then(r=>r.json()).then(orgs => {
+    ['orgFilter','p-org'].forEach(id => {
+      const sel = document.getElementById(id);
+      orgs.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        sel.appendChild(opt);
+      });
+    });
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Records table
+───────────────────────────────────────────────────────────── */
+function loadRecords() {
+  const params = new URLSearchParams({
+    page: _page,
+    per_page: document.getElementById('perPage').value,
+    search:   document.getElementById('searchInput').value,
+    status:   document.getElementById('statusFilter').value,
+    org:      document.getElementById('orgFilter').value,
+  });
+
+  document.getElementById('tBody').innerHTML =
+    '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--txt2)"><div class="spin" style="margin:auto"></div></td></tr>';
+
+  fetch('/api/records?' + params).then(r=>r.json()).then(d => {
+    _totalPages = d.total_pages;
+    renderRows(d.records);
+    renderPager(d.page, d.total_pages);
+    const from = (d.page-1)*d.per_page+1;
+    const to   = Math.min(d.page*d.per_page, d.total);
+    document.getElementById('tblInfo').textContent =
+      d.total ? `Showing ${from}–${to} of ${d.total.toLocaleString()} records` : 'No records found';
+  });
+}
+
+function renderRows(rows) {
+  if (!rows.length) {
+    document.getElementById('tBody').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;padding:48px;color:var(--txt2)">No matching records</td></tr>';
+    return;
+  }
+  document.getElementById('tBody').innerHTML = rows.map(r => `
+    <tr onclick="openRecord(${r.id})">
+      <td style="font-weight:600;color:var(--accentL)">#${r.id}</td>
+      <td>
+        <span class="text-trunc arabic" title="${esc(r.name)}">${esc(r.name)||'—'}</span>
+        <div style="font-size:.72rem;color:var(--txt2)">ID: ${r.service_id}</div>
+      </td>
+      <td><span class="text-trunc arabic" title="${esc(r.org_name)}">${esc(r.org_name)||'—'}</span></td>
+      <td><span class="badge badge-${r.status}">${cap(r.status)}</span></td>
+      <td>${r.payment_service
+        ? '<span style="color:var(--yellow)"><i class="fas fa-credit-card"></i> Yes</span>'
+        : '<span style="color:var(--txt2)">No</span>'}</td>
+      <td style="color:var(--txt2);font-size:.78rem">${r.created_at?r.created_at.slice(0,16):'—'}</td>
+      <td><button class="btn-eye" onclick="event.stopPropagation();openRecord(${r.id})"><i class="fas fa-eye"></i></button></td>
+    </tr>`).join('');
+}
+
+function renderPager(page, total) {
+  const nav = document.getElementById('pager');
+  nav.innerHTML = '';
+  if (total <= 1) return;
+
+  let start = Math.max(1, page-2), end = Math.min(total, start+4);
+  if (end-start < 4) start = Math.max(1, end-4);
+
+  const a = (label, pg, cls='') =>
+    `<a href="#" class="${cls}" onclick="event.preventDefault();${cls.includes('disabled')?'':cls.includes('active')?'':(`goPage(${pg})`)}">${label}</a>`;
+
+  nav.innerHTML =
+    a('«', 1, page===1?'disabled':'') +
+    a('‹', page-1, page===1?'disabled':'') +
+    Array.from({length: end-start+1}, (_,i) => a(start+i, start+i, start+i===page?'active':'')).join('') +
+    a('›', page+1, page===total?'disabled':'') +
+    a('»', total, page===total?'disabled':'');
+}
+
+function goPage(p) { if (p<1||p>_totalPages) return; _page=p; loadRecords(); }
+
+/* ─────────────────────────────────────────────────────────────
+   Record Detail Modal
+───────────────────────────────────────────────────────────── */
+function openRecord(id) {
+  document.getElementById('modalBody').innerHTML =
+    '<div style="text-align:center;padding:50px"><div class="spin" style="margin:auto;width:36px;height:36px;border-width:3px"></div></div>';
+  document.getElementById('detailModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  fetch(`/api/record/${id}`).then(r=>r.json()).then(d => {
+    const p = d.prediction;
+    const col = p.outcome==='completed'?'var(--green)': p.outcome==='pending'?'var(--yellow)':'var(--red)';
+    const match = p.outcome === d.status;
+
+    document.getElementById('modalBody').innerHTML = `
+      <!-- AI Block -->
+      <div class="ai-block">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2)">AI Prediction</span>
+          <span class="badge badge-${p.outcome}">${cap(p.outcome)}</span>
+        </div>
+        <div class="ai-outcome" style="color:${col}">${cap(p.outcome)}</div>
+        <div style="font-size:.8rem;color:var(--txt2);margin-bottom:8px">
+          Confidence: <strong style="color:var(--txt)">${p.confidence}%</strong>
+        </div>
+        <div class="conf-track"><div class="conf-fill" style="width:${p.confidence}%;background:${col}"></div></div>
+        <div style="font-size:.78rem;margin-top:10px;color:${match?'var(--green)':'var(--yellow)'}">
+          <i class="fas fa-${match?'check':'info'}-circle"></i>
+          ${match ? 'Prediction matches actual status'
+                  : 'Prediction differs — actual status is <strong>' + cap(d.status) + '</strong>'}
+        </div>
+      </div>
+
+      <!-- Request Info -->
+      <div class="sec-head"><i class="fas fa-info-circle"></i>Request Information</div>
+      <div class="detail-grid">
+        ${dc('Request ID', '#'+d.service_request_id)}
+        ${dc('Service ID', d.service_id)}
+        ${dc('Status', `<span class="badge badge-${d.status}">${cap(d.status)}</span>`)}
+        ${dc('Payment', d.payment_service ? '<span style="color:var(--yellow)"><i class="fas fa-credit-card me-1"></i>Yes</span>' : 'No')}
+        ${dc('Created At', d.created_at || '—')}
+        ${dc('Completed At', d.finish_time || '—')}
+      </div>
+
+      <!-- Service Info -->
+      <div class="sec-head"><i class="fas fa-cog"></i>Service Details</div>
+      <div class="d-cell" style="margin-bottom:10px">
+        <div class="d-lbl">Service Name</div>
+        <div class="d-val arabic">${esc(d.name)||'—'}</div>
+      </div>
+      <div class="d-cell" style="margin-bottom:10px">
+        <div class="d-lbl">Organization</div>
+        <div class="d-val arabic">${esc(d.org_name)||'—'}</div>
+      </div>
+      ${d.response ? `<div class="d-cell" style="margin-bottom:10px">
+        <div class="d-lbl">Response</div>
+        <div class="d-val arabic">${esc(d.response)}</div>
+      </div>` : ''}
+
+      <!-- Citizen Info -->
+      <div class="sec-head"><i class="fas fa-user"></i>Citizen Information</div>
+      <div class="detail-grid">
+        ${dc('Full Name', [d.first_name, d.middle_name, d.last_name].filter(Boolean).join(' ') || '—', true)}
+        ${dc('Phone', d.phone_num || '—')}
+        ${dc('Birth Date', d.birth_date || '—')}
+        ${dc('User ID', d.user_id || '—')}
+      </div>
+
+      ${d.nodes && d.nodes.length ? `
+      <div class="sec-head"><i class="fas fa-project-diagram"></i>Workflow Timeline</div>
+      ${d.nodes.map((n,i) => `
+        <div class="node-line">
+          <div class="node-dot" style="background:${i===d.nodes.length-1?'var(--green)':'var(--accent)'}"></div>
+          <div>
+            <div style="font-size:.88rem;font-weight:500" class="arabic">${esc(n.node_name||'—')}</div>
+            <div style="font-size:.75rem;color:var(--txt2)">${n.request_created_at||''} ${n.request_finished_at?'→ '+n.request_finished_at:''}</div>
+          </div>
+        </div>`).join('')}` : ''}
+    `;
+  });
+}
+
+function dc(label, value, arabic=false) {
+  return `<div class="d-cell"><div class="d-lbl">${label}</div><div class="d-val ${arabic?'arabic':''}">${value}</div></div>`;
+}
+
+function closeModal() {
+  document.getElementById('detailModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Predict
+───────────────────────────────────────────────────────────── */
+function runPredict() {
+  const payload = {
+    service_id:      parseInt(document.getElementById('p-sid').value) || 89,
+    name:            document.getElementById('p-name').value,
+    org_name:        document.getElementById('p-org').value,
+    payment_service: parseInt(document.getElementById('p-pay').value),
+    created_at:      document.getElementById('p-dt').value,
+    birth_date:      document.getElementById('p-bd').value,
+  };
+
+  fetch('/api/predict', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+    .then(r=>r.json())
+    .then(d => {
+      if (d.error) { alert('Prediction error: ' + d.error); return; }
+      const col = d.outcome==='completed'?'#22c55e': d.outcome==='pending'?'#f59e0b':'#ef4444';
+      const box = document.getElementById('predBox');
+      box.classList.add('show');
+      document.getElementById('pred-outcome').textContent = cap(d.outcome);
+      document.getElementById('pred-outcome').style.color = col;
+      document.getElementById('pred-conf').textContent = d.confidence + '%';
+      document.getElementById('pred-bar').style.width = d.confidence + '%';
+      document.getElementById('pred-bar').style.background = col;
+      document.getElementById('pred-badge').innerHTML = `<span class="badge badge-${d.outcome}">${cap(d.outcome)}</span>`;
+    });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Train
+───────────────────────────────────────────────────────────── */
+function openTrainModal() {
+  if (!confirm('Retrain the XGBoost model on the full dataset?\nThis takes 1–2 minutes.')) return;
+  _training = true;
+  document.getElementById('trainBody').innerHTML = `
+    <div style="text-align:center;padding:30px 20px">
+      <div class="spin" style="margin:auto;width:36px;height:36px;border-width:3px;margin-bottom:16px"></div>
+      <div style="color:var(--txt2)">Training model on 50,000 records… please wait.</div>
+    </div>`;
+  document.getElementById('trainModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  fetch('/api/train', { method:'POST' }).then(r=>r.json()).then(d => {
+    _training = false;
+    const ok = d.success;
+    document.getElementById('trainBody').innerHTML = `
+      <div style="padding:10px">
+        <div style="color:${ok?'var(--green)':'var(--red)'};font-weight:600;margin-bottom:10px;font-size:1.05rem">
+          <i class="fas fa-${ok?'check-circle':'exclamation-circle'} me-2"></i>
+          ${ok ? 'Model retrained successfully!' : 'Training failed.'}
+        </div>
+        ${d.stdout ? `<div class="train-log">${esc(d.stdout)}</div>` : ''}
+        ${d.stderr ? `<div class="train-log" style="color:var(--red);margin-top:8px">${esc(d.stderr)}</div>` : ''}
+        <button class="btn-outline" style="margin-top:14px" onclick="closeTrainModal()">Close</button>
+      </div>`;
+  }).catch(err => {
+    _training = false;
+    document.getElementById('trainBody').innerHTML =
+      `<div style="padding:10px;color:var(--red)">Error: ${err}</div>`;
+  });
+}
+
+function closeTrainModal() {
+  document.getElementById('trainModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Utilities
+───────────────────────────────────────────────────────────── */
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function cap(s) { return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+</script>
+</body>
+</html>

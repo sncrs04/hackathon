@@ -8,12 +8,13 @@ from src.train import ModelTrainer
 
 
 def main() -> None:
-    raw_data_path = Path("data/raw/data.csv")
+    raw_data_path = Path("scramble-data.csv")
     try:
-        raw_df = pd.read_csv(raw_data_path)
+        raw_df = pd.read_csv(raw_data_path, encoding="utf-8")
     except FileNotFoundError:
         raise FileNotFoundError(
-            f"Raw data file not found at {raw_data_path}. Place the CSV under data/raw/ and rerun."
+            f"Raw data file not found at {raw_data_path}. "
+            "Make sure scramble-data.csv is in the project root and rerun."
         )
     except Exception as exc:
         raise IOError(f"Unable to load raw CSV: {exc}") from exc

@@ -8,6 +8,7 @@ import seaborn as sns
 import xgboost as xgb
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 
 class ModelTrainer:
@@ -16,6 +17,7 @@ class ModelTrainer:
         self.importance_path = importance_path
         self.model: Optional[xgb.XGBClassifier] = None
         self.feature_columns: List[str] = []
+        self.label_encoder: Optional[LabelEncoder] = None
 
     def _prepare_features(self, df: pd.DataFrame, target_column: str) -> Tuple[pd.DataFrame, pd.Series]:
         if target_column not in df.columns:
@@ -24,7 +26,6 @@ class ModelTrainer:
         y = df[target_column]
         X = df.drop(columns=[target_column])
 
-        # Use numeric inputs and one-hot encode categorical fields for XGBoost.
         numeric = X.select_dtypes(include="number")
         categorical = X.select_dtypes(include=["object", "category"])
 
@@ -40,7 +41,16 @@ class ModelTrainer:
     def _save_model(self) -> None:
         try:
             os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
-            joblib.dump(self.model, self.model_path)
+            # Save model, feature columns, and label encoder together so the
+            # predictor can align inputs and decode predictions back to strings.
+            joblib.dump(
+                {
+                    "model": self.model,
+                    "feature_columns": self.feature_columns,
+                    "label_encoder": self.label_encoder,
+                },
+                self.model_path,
+            )
         except Exception as exc:
             raise IOError(f"Failed to save model to {self.model_path}: {exc}") from exc
 
@@ -56,7 +66,7 @@ class ModelTrainer:
 
         os.makedirs(os.path.dirname(self.importance_path), exist_ok=True)
         plt.figure(figsize=(10, 6))
-        sns.barplot(data=importance_df.head(20), x="importance", y="feature", palette="viridis")
+        sns.barplot(data=importance_df.head(20), x="importance", y="feature", hue="feature", palette="viridis", legend=False)
         plt.title("Feature Importance")
         plt.tight_layout()
         plt.savefig(self.importance_path, dpi=150)
@@ -68,41 +78,40 @@ class ModelTrainer:
         if y.nunique() < 2:
             raise ValueError("Target column must contain at least two classes for classification.")
 
+        # XGBoost requires integer labels; encode string class names to [0, N-1].
+        self.label_encoder = LabelEncoder()
+        y_encoded = pd.Series(self.label_encoder.fit_transform(y), index=y.index)
+
         X_train, X_test, y_train, y_test = train_test_split(
             X,
-            y,
+            y_encoded,
             test_size=0.2,
-            stratify=y,
+            stratify=y_encoded,
             random_state=42,
         )
 
-        class_counts = y_train.value_counts()
-        scale_pos_weight = 1.0
-
-        if len(class_counts) == 2:
-            minority = class_counts.min()
-            majority = class_counts.max()
-            if minority > 0:
-                scale_pos_weight = float(majority) / float(minority)
+        # mlogloss is the correct eval metric for multi-class problems.
+        eval_metric = "mlogloss" if y.nunique() > 2 else "logloss"
 
         self.model = xgb.XGBClassifier(
-            use_label_encoder=False,
-            eval_metric="logloss",
+            eval_metric=eval_metric,
             n_estimators=200,
             max_depth=5,
             learning_rate=0.1,
             subsample=0.8,
             colsample_bytree=0.8,
             random_state=42,
-            scale_pos_weight=scale_pos_weight,
         )
 
         self.model.fit(X_train, y_train)
         self._save_model()
         self._plot_feature_importance()
 
-        predictions = self.model.predict(X_test)
-        report = classification_report(y_test, predictions)
+        predictions_encoded = self.model.predict(X_test)
+        # Decode back to original class names for the classification report.
+        predictions = self.label_encoder.inverse_transform(predictions_encoded)
+        y_test_labels = self.label_encoder.inverse_transform(y_test)
+        report = classification_report(y_test_labels, predictions)
         print("Classification report:\n", report)
 
         return {
